@@ -1,0 +1,49 @@
+================
+STEM+VEGA+Space
+================
+Author: HanishKVC
+Version: v20201029IST1218
+
+
+NOTE: Initial thought which I had put on https://groups.io/g/sp2020-shakti forum
+
+Idea for STEM + Shakti/Vega + Space To encourage Students at heart
+
+Hi,
+
+To encourage and kindle interest in students (including those at heart) to explore multiple domains while still having some fun, with support from ISRO, IIT/CDAC and HAMs, some should look at building 
+
+A FM AMSATs (Pico/Nano/...) with
+
+a) Polar Sun Synchronous orbit - so that its relatively easier from tracking the satellite perspective as well as potentially in perpetual sun light (provided temperatures can be handled).
+
+b) Operating in Mode J (V/U) OR should it be Mode B (U/V) so that someone just receiving doesnt have to worry about adjusting freq for doppler shifts much (at the lower 145 MHz)
+
+c) A FM repeater
+
+d) Two Processing paths
+
+d.1) Normal Shakti SOC and
+
+d.2) Shakti-F or Equivalent potentially Resilient RISC-V SOC on a Radiation Hardened FPGA
+
+Both of Which once every 24 hours resets a counter to 0 and then keep incrementing once every 2 minutes or so. (Maybe if required in that 2 minute do a series of Add/Sub/Mult/Div operations such that the end result wrt increment value is 1).
+
+Maybe alternate between the FM repeater and a Simple Frequency tone coded data digits (0-9, each digit having a freq 200Hz appart from the next) mode every other day.
+
+During the Simple Frequency tone coded Data Digits mode keep sending the following in a loop over the FM downlink.
+
+8 Digit-0s
+Normal SOC Counter Value 3 Digits
+Hardened FPGA SOC Counter Value 3 Digits
+8 Digit-9s
+3 Digit Temp Readout
+3 Digit light intensity readout
+
+If the orbit and batteries help ensure moving between day side and night side, then maybe more interesting readings wrt Temp and Light intensity can be got.
+
+During FM Repeater Mode, repeat the uplink in downlink or if no uplink then switch to simple frequency tone data mode.
+
+The above at one end should help test out the SOCs in a interesting setup, while also providing a interesting interaction oppurtunities to students at heart.
+
+ALERT: I have never designed a satellite in life, so do forgive if there are stupidities. But something along the above (with suitable adjustments) I feel would be interesting and challenging in a good way.
