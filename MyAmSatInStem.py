@@ -13,7 +13,7 @@
 # 
 # In turn use a simple mechanism to transmit the sensor data like
 # 
-# a) Blind Analog frequency modulation: Different frequencies for different values
+# a) Simple Analog frequency modulation: Different frequencies for different values
 # 
 # b) Analog frequency modulated tones for different decimal digits from 0 to 9, maybe each 200 Hz appart.
 # 
@@ -31,13 +31,15 @@
 # 
 # * if it is 0 degrees, then the satellite would be always at around roughly mid day or mid night wrt the places on earth, depending on which side of the earth wrt sun, that place is.
 # 
+# The satellite may pass over a given ground location between 0 to 2 times under normal conditions for a polar sun synchronous orbit. Ideally this would be twice if the satellite (and its RF system) covers all parts of the earth fully in a day.
+# 
 
 # ## NOTE
 # 
 # Below are few simple minded calculations to get a very very rough initial idea of few things
 # 
 
-# In[101]:
+# In[3]:
 
 
 import math
@@ -46,7 +48,7 @@ import numpy
 
 # ## Earth
 
-# In[102]:
+# In[4]:
 
 
 # Gravitational Constant (m^3 / (kg * s^2))
@@ -65,7 +67,7 @@ print("EarthCircumference:", iEarthCircumference)
 
 # ## LEO
 
-# In[103]:
+# In[5]:
 
 
 ## LowEarthOrbit
@@ -97,7 +99,7 @@ iDayInSecs/(iDayInSecs%iLeoOrbitTimeTaken)
 
 # ## Earth coverage
 
-# In[104]:
+# In[8]:
 
 
 # Earth Coverage and Altitude
@@ -110,13 +112,15 @@ iDayInSecs/(iDayInSecs%iLeoOrbitTimeTaken)
 # Angle = FieldOfView
 iSatAltitude = numpy.array([200_000, 500_000, 1_000_000, 36_000_000])
 iFieldOfView = 106 # Adjusted to sync NumOfSiteings with EarthCircumference given EarthCoverage Radius @500KM
+iFieldOfView = 60
 iEarthCoverageRadius = numpy.tan(((iFieldOfView/2)/360)*math.pi*2)*iSatAltitude
 print("EarthCoverageRadius[@{}]:{}".format(iFieldOfView, iEarthCoverageRadius))
 math.atan(iEarthRadius/(iEarthRadius+36_000_000)) * (360/(math.pi*2))
 math.atan(iEarthRadius/(iEarthRadius+500_000)) * (360/(math.pi*2))
 
 # Minimum number of orbits to cover the earths equatorial circumference
-iEarthCircumference/(iEarthCoverageRadius*2*2)
+iMinNumOfOrbits4Equator=iEarthCircumference/(iEarthCoverageRadius*2*2)
+print("Minimum number of orbits required to cover earths equatorial circumference fully:", iMinNumOfOrbits4Equator)
 
 
 # ## Return to Same point in Given time
@@ -133,7 +137,15 @@ iEarthCircumference/(iEarthCoverageRadius*2*2)
 # 
 # iOrbitRadius^3 = (iOrbitTime^2 * iGravitationalConst * iEarthMass) / (4 * Pi^2)
 
-# In[105]:
+# In[ ]:
+
+
+
+
+
+# ## Eclipse due to earth
+
+# In[7]:
 
 
 # EvenMoreCrudeMath: rough amount of time for which satellite will be eclipsed by earth in a orbit
@@ -142,3 +154,64 @@ iMaxEclipseTime = iHalfOfEarthToLeoCircumference * iLeoOrbitTimeTaken
 print("Satellite could be Eclipsed by Earth for a max of {} mins per Orbit".format(iMaxEclipseTime/60))
 # Actual Eclipse time will be smaller than this, as light bends over (among others...)
 
+
+# ## Util functions
+
+# In[33]:
+
+
+# dB wrt milliwatt normally
+def to_dBm(inWatts):
+    return 10 * math.log10(inWatts/0.001)
+
+# dB wrt isotropic antenna
+def to_dBi(inPower):
+    return 10 * math.log10(inPower/1)
+
+iLightSpeed = 300_000_000 # meters / sec
+
+def wavelen2freq(waveLen):
+    return iLightSpeed/waveLen
+
+def freq2wavelen(freq):
+    return iLightSpeed/freq
+
+
+# ## RF Losses
+
+# In[40]:
+
+
+# Using Friis transmission formula
+# Pr = Pt * Dt * Dr * (Lambda/4*Pi*D)^2
+# Pr_dBm = Pt_dBm + Dt_dBi + Dr_dBi + 10*log10((Lambda/4*Pi*D)^2)
+# Pr_dBm = Pt_dBm + Dt_dBi + Dr_dBi + 20*log10(Lambda/4*Pi*D)
+# Pr_dBm = Pt_dBm + Dt_dBi + Dr_dBi + 20*log10(Lambda) - 20*log10(D) - 20*log10(1/4*Pi)
+#
+powerTransmitter = 0.5 # Watts; this is what is normal for LEO AmSats
+powerTransmitterDBm = to_dBm(powerTransmitter)
+print("TransmitPower(dBm):", powerTransmitterDBm)
+directivityTransmitter = 1
+directivityTransmitterDBi = to_dBi(directivityTransmitter)
+directivityReciever = 1 # Change based on antenne system used
+directivityRecieverDBi = to_dBi(directivityReciever)
+frequencies = numpy.array([145_800_000, 435_000_000, 900_000_000, 2_400_000_000 ])
+print("Frequencies:", frequencies)
+distances = numpy.array([[500_000],[1_000_000]])
+
+
+# This doesnt consider any losses through_the/due_to medium of propagation, nor multipath, nor ...
+# However as the path loss is the major factor given the distances involved, its used to get a rough feel
+def freespace_pathloss(Pt_dBm, Dt_dBi, Dr_dBi, frequencies, distances):
+    Pr_dBm = Pt_dBm + Dt_dBi + Dr_dBi + 20*numpy.log10(iLightSpeed/(4*numpy.pi*distances*frequencies))
+    return Pr_dBm
+
+
+powerRecieverDBm = freespace_pathloss(powerTransmitterDBm, directivityTransmitterDBi, directivityRecieverDBi,
+                                       frequencies, distances)
+print("PowerAtReciever_Rough(dBm):\n",powerRecieverDBm)
+
+
+# ## ToDo
+# Doppler effect
+# 
