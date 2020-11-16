@@ -36,19 +36,20 @@
 
 # ## NOTE
 # 
-# Below are few simple minded calculations to get a very very rough initial idea of few things
+# Below are few simple minded calculations to get a very very rough initial idea of few things. It is more simple geometry based and far removed from actual orbital characteristics. 
 # 
 
-# In[3]:
+# In[122]:
 
 
 import math
 import numpy
+import matplotlib.pyplot as plt
 
 
 # ## Earth
 
-# In[4]:
+# In[123]:
 
 
 # Gravitational Constant (m^3 / (kg * s^2))
@@ -67,7 +68,7 @@ print("EarthCircumference:", iEarthCircumference)
 
 # ## LEO
 
-# In[5]:
+# In[124]:
 
 
 ## LowEarthOrbit
@@ -99,7 +100,7 @@ iDayInSecs/(iDayInSecs%iLeoOrbitTimeTaken)
 
 # ## Earth coverage
 
-# In[8]:
+# In[125]:
 
 
 # Earth Coverage and Altitude
@@ -111,7 +112,7 @@ iDayInSecs/(iDayInSecs%iLeoOrbitTimeTaken)
 # AdjacentSide = Altitude from surface
 # Angle = FieldOfView
 iSatAltitude = numpy.array([200_000, 500_000, 1_000_000, 36_000_000])
-iFieldOfView = 106 # Adjusted to sync NumOfSiteings with EarthCircumference given EarthCoverage Radius @500KM
+iFieldOfView = 106 # Adjusted to sync NumOfSiteings/day with EarthEquatorialCircumferenceCoverage from 500KM
 iFieldOfView = 60
 iEarthCoverageRadius = numpy.tan(((iFieldOfView/2)/360)*math.pi*2)*iSatAltitude
 print("EarthCoverageRadius[@{}]:{}".format(iFieldOfView, iEarthCoverageRadius))
@@ -119,8 +120,19 @@ math.atan(iEarthRadius/(iEarthRadius+36_000_000)) * (360/(math.pi*2))
 math.atan(iEarthRadius/(iEarthRadius+500_000)) * (360/(math.pi*2))
 
 # Minimum number of orbits to cover the earths equatorial circumference
-iMinNumOfOrbits4Equator=iEarthCircumference/(iEarthCoverageRadius*2*2)
+iEarthCircumferenceAtEquatorCoveredPerOrbit = iEarthCoverageRadius*2*2
+print("EarthCircumferenceAtEquator CoveredPerOrbit:", iEarthCircumferenceAtEquatorCoveredPerOrbit)
+iMinNumOfOrbits4Equator=iEarthCircumference/iEarthCircumferenceAtEquatorCoveredPerOrbit
 print("Minimum number of orbits required to cover earths equatorial circumference fully:", iMinNumOfOrbits4Equator)
+
+# Movement of earth in a given time
+iEarthMovementPerSecAtEquatorDueToRotation = iEarthCircumference/iDayInSecs
+print("EarthMovementPerSecAtEquatorDueToRotation:", iEarthMovementPerSecAtEquatorDueToRotation)
+iEarthMovementPerOrbitAtEquatorDueToRotation = iLeoOrbitTimeTaken * iEarthMovementPerSecAtEquatorDueToRotation
+print("EarthMovementPerOrbitAtEquatorDueToRotation:", iEarthMovementPerOrbitAtEquatorDueToRotation)
+
+# Percent of required area covered per orbit
+(iEarthCircumferenceAtEquatorCoveredPerOrbit/iEarthMovementPerOrbitAtEquatorDueToRotation)*100
 
 
 # ## Return to Same point in Given time
@@ -137,27 +149,61 @@ print("Minimum number of orbits required to cover earths equatorial circumferenc
 # 
 # iOrbitRadius^3 = (iOrbitTime^2 * iGravitationalConst * iEarthMass) / (4 * Pi^2)
 
-# In[ ]:
+# In[126]:
 
 
+def orbitradius_giventime(orbitTime, theMainMass=iEarthMass, gravitationalConstant=iGravitationalConstant):
+    return numpy.cbrt((((orbitTime)**2)*gravitationalConstant*theMainMass)/(4*(numpy.pi**2)))
 
+orbitradius_giventime(iLeoOrbitTimeTaken)-iEarthRadius
+orbitradius_giventime(2*60*60)-iEarthRadius
+#orbitradius_giventime(1.41545*60*60)-iEarthRadius
+#1.41545*60
 
 
 # ## Eclipse due to earth
 
-# In[7]:
+# In[127]:
 
 
-# EvenMoreCrudeMath: rough amount of time for which satellite will be eclipsed by earth in a orbit
+## Show Earth and Satellite Orbit
+rads=numpy.linspace(0,numpy.pi*2,128)
+xE = numpy.sin(rads)*iEarthRadius
+yE = numpy.cos(rads)*iEarthRadius
+plt.plot(xE,yE,"b")
+xS = numpy.sin(rads)*iLeoAltitudeFromEarthCenter
+yS = numpy.cos(rads)*iLeoAltitudeFromEarthCenter
+plt.plot(xS,yS,"r.")
+plt.plot([0,xS[24]],[0,yS[24]],"g")
+plt.plot([0,xS[-1-24]],[0,yS[-1-24]],"g")
+plt.plot([xS[24],xS[-1-24]], [yS[24],yS[-1-24]])
+#plt.plot([xS[-1-24],xS[-1-39]], [yS[-1-24],yS[-1-39]])
+plt.plot([-iEarthRadius, -iEarthRadius],[-iEarthRadius,iEarthRadius])
+plt.show()
+
+## EvenMoreCrudeMath: rough amount of time for which satellite will be eclipsed by earth in a orbit
 iHalfOfEarthToLeoCircumference = (0.5*iEarthCircumference)/iLeoCircumference
 iMaxEclipseTime = iHalfOfEarthToLeoCircumference * iLeoOrbitTimeTaken
 print("Satellite could be Eclipsed by Earth for a max of {} mins per Orbit".format(iMaxEclipseTime/60))
 # Actual Eclipse time will be smaller than this, as light bends over (among others...)
 
+## Blind, based on simple direct EarthDia
+iMinEclipseTime = (((iEarthRadius*2)/iLeoCircumference)*iLeoOrbitTimeTaken)
+#print("EarthDia:", iEarthRadius*2)
+#print("LeoCircumference:", iLeoCircumference)
+print("Satellite could be Eclipsed by Earth for a minimum of around {} mins per Orbit".format(iMinEclipseTime/60))
+
+## Bit better based on circle segment
+halfAngle = math.asin(iEarthRadius/iLeoAltitudeFromEarthCenter)
+#iEclipsedCircumference = (2*halfAngle) * iLeoAltitudeFromEarthCenter
+iEclipsedCircumference = ((2*halfAngle)/(2*numpy.pi)) * iLeoCircumference
+iEclipseTime = ((iEclipsedCircumference/iLeoCircumference)*iLeoOrbitTimeTaken)
+print("Satellite could be Eclipsed by Earth for around {} mins per Orbit".format(iEclipseTime/60))
+
 
 # ## Util functions
 
-# In[33]:
+# In[128]:
 
 
 # dB wrt milliwatt normally
@@ -177,9 +223,23 @@ def freq2wavelen(freq):
     return iLightSpeed/freq
 
 
-# ## RF Losses
+# ## RF Comm
+# 
+# ### RF Frequencies
+# 
+# AmSats normally use the following bands
+# 
+# * In V band = 145.8 - 146 MHz
+# * In U band = 435 - 438 MHz
+# 
+# The V band will be more crowded compared to U band.
+# 
+# At same time V band has less doppler effect (and so the related freq drift) compared to the higher frequency U band.
+# 
+# 
+# ### RF Losses
 
-# In[40]:
+# In[129]:
 
 
 # Using Friis transmission formula
@@ -212,6 +272,12 @@ powerRecieverDBm = freespace_pathloss(powerTransmitterDBm, directivityTransmitte
 print("PowerAtReciever_Rough(dBm):\n",powerRecieverDBm)
 
 
-# ## ToDo
-# Doppler effect
-# 
+# ### Doppler effect
+
+# In[130]:
+
+
+commFreqs = numpy.array([145_800_000, 436_000_000])
+dopShifts = commFreqs*(iLeoVelocity/iLightSpeed)
+print("DopplerShifts[in Hz] for {} is {}".format(commFreqs, dopShifts))
+
