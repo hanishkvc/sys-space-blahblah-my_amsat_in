@@ -19,7 +19,7 @@
 # 
 # b) Binary Digital Keying: Presence or absence of Frequency or Toggle btw 2 different sets of frequencies indicate between 0 and 1. 
 # 
-# ### Orbit
+# ### Orbit (initial thought, need to think/check)
 # 
 # The Polar orbit should allow the satellite to cover all parts of the earth.
 # 
@@ -39,7 +39,7 @@
 # Below are few simple minded calculations to get a very very rough initial idea of few things. It is more simple geometry based and far removed from actual orbital characteristics. 
 # 
 
-# In[122]:
+# In[2]:
 
 
 import math
@@ -49,7 +49,7 @@ import matplotlib.pyplot as plt
 
 # ## Earth
 
-# In[123]:
+# In[3]:
 
 
 # Gravitational Constant (m^3 / (kg * s^2))
@@ -68,7 +68,7 @@ print("EarthCircumference:", iEarthCircumference)
 
 # ## LEO
 
-# In[124]:
+# In[36]:
 
 
 ## LowEarthOrbit
@@ -98,9 +98,26 @@ iDayInSecs/(iDayInSecs%iLeoOrbitTimeTaken)
 #0.146*103
 
 
+# In[38]:
+
+
+## Orbital Velocities
+
+iAltitudesAboveGround = numpy.linspace(0,10_000_000, 20)
+iAltitudesAboveGround = numpy.arange(0,35_500_000, 500_000)
+def orbitvelocity_from_altitude(altitudeFromCenter, theMainMass=iEarthMass):
+    return numpy.sqrt((iGravitationalConstant*theMainMass)/altitudeFromCenter)
+
+iOrbitVelocities = orbitvelocity_from_altitude(iAltitudesAboveGround+iEarthRadius)
+plt.plot(iAltitudesAboveGround/1000, iOrbitVelocities, "+-")
+plt.xlabel("AltAboveGnd[Km]")
+plt.ylabel("OrbitVelocities[m/s]")
+plt.show()
+
+
 # ## Earth coverage
 
-# In[125]:
+# In[5]:
 
 
 # Earth Coverage and Altitude
@@ -149,7 +166,7 @@ print("EarthMovementPerOrbitAtEquatorDueToRotation:", iEarthMovementPerOrbitAtEq
 # 
 # iOrbitRadius^3 = (iOrbitTime^2 * iGravitationalConst * iEarthMass) / (4 * Pi^2)
 
-# In[126]:
+# In[6]:
 
 
 def orbitradius_giventime(orbitTime, theMainMass=iEarthMass, gravitationalConstant=iGravitationalConstant):
@@ -163,7 +180,7 @@ orbitradius_giventime(2*60*60)-iEarthRadius
 
 # ## Eclipse due to earth
 
-# In[127]:
+# In[7]:
 
 
 ## Show Earth and Satellite Orbit
@@ -203,7 +220,7 @@ print("Satellite could be Eclipsed by Earth for around {} mins per Orbit".format
 
 # ## Util functions
 
-# In[128]:
+# In[8]:
 
 
 # dB wrt milliwatt normally
@@ -239,7 +256,7 @@ def freq2wavelen(freq):
 # 
 # ### RF Losses
 
-# In[129]:
+# In[25]:
 
 
 # Using Friis transmission formula
@@ -270,14 +287,28 @@ def freespace_pathloss(Pt_dBm, Dt_dBi, Dr_dBi, frequencies, distances):
 powerRecieverDBm = freespace_pathloss(powerTransmitterDBm, directivityTransmitterDBi, directivityRecieverDBi,
                                        frequencies, distances)
 print("PowerAtReciever_Rough(dBm):\n",powerRecieverDBm)
+plt.plot(frequencies, powerRecieverDBm[0], "g.-", label="500Km")
+plt.plot(frequencies, powerRecieverDBm[1], "r.-", label="1000Km")
+plt.legend()
+plt.show()
+plt.plot(frequencies, numpy.atleast_2d(powerRecieverDBm).T,"+-")
+plt.legend(["500Km", "1000Km"])
+plt.xlabel("Freqs")
+plt.ylabel("RecieverDBm")
+plt.show()
 
 
 # ### Doppler effect
 
-# In[130]:
+# In[27]:
 
 
 commFreqs = numpy.array([145_800_000, 436_000_000])
 dopShifts = commFreqs*(iLeoVelocity/iLightSpeed)
 print("DopplerShifts[in Hz] for {} is {}".format(commFreqs, dopShifts))
+dopShifts = frequencies*(iLeoVelocity/iLightSpeed)
+plt.plot(frequencies, dopShifts, "+-")
+plt.xlabel("Freqs")
+plt.ylabel("Drift(Hz)")
+plt.show()
 
