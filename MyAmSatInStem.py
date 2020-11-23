@@ -18,7 +18,7 @@
 # 
 # Also I have nevered looked into satelite orbits and its implications before, on top these are my initial thoughts, that too with simple minded modeling, so take these with a big pinch of salt ;-)
 
-# In[84]:
+# In[1]:
 
 
 import math
@@ -28,7 +28,7 @@ import matplotlib.pyplot as plt
 
 # ## Earth
 
-# In[85]:
+# In[2]:
 
 
 # Gravitational Constant (m^3 / (kg * s^2))
@@ -62,7 +62,7 @@ print("EarthCircumference:", iEarthCircumference)
 
 # ## LEO
 
-# In[86]:
+# In[3]:
 
 
 ## LowEarthOrbit
@@ -92,7 +92,7 @@ iDayInSecs/(iDayInSecs%iLeoOrbitTimeTaken)
 #0.146*103
 
 
-# In[87]:
+# In[4]:
 
 
 ## Orbital Velocities
@@ -118,7 +118,7 @@ plt.show()
 
 # ## Earth coverage
 
-# In[88]:
+# In[5]:
 
 
 # Earth Coverage and Altitude
@@ -153,27 +153,31 @@ print("EarthMovementPerOrbitAtEquatorDueToRotation:", iEarthMovementPerOrbitAtEq
 (iEarthCircumferenceAtEquatorCoveredPerOrbit/iEarthMovementPerOrbitAtEquatorDueToRotation)*100
 
 
-# In[134]:
+# ## Return to Same point (roughly)
+# 
+# ### Earth Equatorial Circumference covered across orbits
+# 
+
+# In[6]:
 
 
 # Earth Equatorial Circumference covered across orbits
 
 
 bCoverageGraphics = False
+bDumpVistedEquatorPos = False
 
 
-# Offsetting the base to a multiple of 360 instead of 0
-# could simplify the calc by needing only mod, but going for simple straight interpretation 
-def sane_pos(inPos):
+def circular_pos(inPos):
     inPos = (inPos % 360)
     if inPos < 0:
         inPos = 360 + inPos
     return inPos
 
 
-def test_sane_pos():
+def test_circular_pos():
     for i in range(-520,520):
-        print(i, sane_pos(i))
+        print(i, circular_pos(i))
 
 
 def dprint(msg, bDebug=False):
@@ -215,11 +219,12 @@ def circular_absdiff(pos1, pos2):
     return abs(delta)
 
 
-t1=circular_absdiff(270,89)
-t2=circular_absdiff(89,270)
-t3=circular_absdiff(359,0)
-t4=circular_absdiff(0,359)
-print(t1,t2,t3,t4)
+def test_circular_diffs():
+    t1=circular_absdiff(270,89)
+    t2=circular_absdiff(89,270)
+    t3=circular_absdiff(359,0)
+    t4=circular_absdiff(0,359)
+    print(t1,t2,t3,t4)
 
 
 def earthcoverage_given_orbittime(orbitTime, coverageRadiusInDegs=0):
@@ -232,22 +237,23 @@ def earthcoverage_given_orbittime(orbitTime, coverageRadiusInDegs=0):
     iVisitedL = []
     for i in range(iMaxNumOrbits*2):
         #print(iCurPos)
-        iVisited.add(int(iCurPos))
-        iVisitedL.append(int(iCurPos))
+        iVisited.add(round(iCurPos))
+        iVisitedL.append(round(iCurPos))
         # Move to opposite during orbit
         iCurPos = iCurPos + 180 - (iEarthMovementPerOrbitAtEquatorInDegrees/2)
-        iCurPos = sane_pos(iCurPos)
+        iCurPos = circular_pos(iCurPos)
+        # Doesnt bother if the point being revisited is on sun facing or eclipsed side
         if circular_absdiff(iStartPos, iCurPos) <= coverageRadiusInDegs:
-            iVisited.add(int(iCurPos))
-            iVisitedL.append(int(iCurPos))
+            iVisited.add(round(iCurPos))
+            iVisitedL.append(round(iCurPos))
             dprint("Reached back to starting pos on %d th orbit"%(i/2))
             break
     coverageMultiplier = 2*coverageRadiusInDegs
     if coverageMultiplier == 0:
         coverageMultiplier = 1
     iPercentageCovered = (len(iVisited)/360)*coverageMultiplier*100
-    dprint(iVisited, True)
-    dprint(iVisitedL, True)
+    dprint(iVisited, False)
+    dprint(iVisitedL, False)
     dprint("%d[/%d] unique orbits, covered %d %% of earth with FOVCvrageRadiusDegs of %g"%(i/2, iMaxNumOrbits, iPercentageCovered, coverageRadiusInDegs), False)
     return iPercentageCovered, i/2, iVisitedL
 
@@ -265,13 +271,15 @@ for alt in range(400_000, 2_000_000, 50_000):
     lCvrd = numpy.append(lCvrd, cvrageP)
     lUniqOrbits = numpy.append(lUniqOrbits, uniqOrbits)
     print("Orbit: alt [%d] time [%d] FOVCvrgRadiusDegs [%g] cvrage%% [%g] with [%d] uniqOrbits"%(alt, orbTime, iFOVCoverageRadiusInDegs, cvrageP, uniqOrbits))
-    #print("DBUG:", lVisited)
+    if bDumpVistedEquatorPos:
+        print("DBUG:", lVisited)
     if bCoverageGraphics:
         y = numpy.zeros(len(lVisited))
         plt.plot(lVisited, y, "+")
         plt.show()
 
-
+savedFigSize = plt.rcParams['figure.figsize']
+savedFigDpi = plt.rcParams['figure.dpi']
 plt.rcParams['figure.figsize'] = [8,4]
 plt.rcParams['figure.dpi'] = 120
 #plt.figure(figsize=(8,4), dpi=100)
@@ -287,13 +295,13 @@ plt.plot(lAlts/1000, lUniqOrbits, "+-")
 plt.ylabel("UniqOrbitsB4Repeat")
 plt.xlabel("OrbitAlt[Km]")
 plt.show()
-
+plt.rcParams['figure.figsize'] = [4,3]
+plt.rcParams['figure.dpi'] = 100
 
 bin(2**512-1)
 bin(1 << 6)
 
 
-# ## Return to Same point in Given time
 # 
 # ### Find Orbit Radius given a Orbit Time
 # 
@@ -307,7 +315,7 @@ bin(1 << 6)
 # 
 # iOrbitRadius^3 = (iOrbitTime^2 * iGravitationalConst * iEarthMass) / (4 * Pi^2)
 
-# In[ ]:
+# In[7]:
 
 
 def orbitradius_giventime(orbitTime, theMainMass=iEarthMass, gravitationalConstant=iGravitationalConstant):
@@ -321,22 +329,22 @@ orbitradius_giventime(2*60*60)-iEarthRadius
 
 # ## Eclipse due to earth
 
-# In[ ]:
+# In[8]:
 
 
 ## Show Earth and Satellite Orbit
 rads=numpy.linspace(0,numpy.pi*2,128)
-xE = numpy.sin(rads)*iEarthRadius
-yE = numpy.cos(rads)*iEarthRadius
+xE = numpy.sin(rads)*iEarthRadius/1000
+yE = numpy.cos(rads)*iEarthRadius/1000
 plt.plot(xE,yE,"b", label="Earth")
-xS = numpy.sin(rads)*iLeoAltitudeFromEarthCenter
-yS = numpy.cos(rads)*iLeoAltitudeFromEarthCenter
+xS = numpy.sin(rads)*iLeoAltitudeFromEarthCenter/1000
+yS = numpy.cos(rads)*iLeoAltitudeFromEarthCenter/1000
 plt.plot(xS,yS,"r.", label="SatOrbit")
 plt.plot([0,xS[24]],[0,yS[24]],"g")
 plt.plot([0,xS[-1-24]],[0,yS[-1-24]],"g")
 plt.plot([xS[24],xS[-1-24]], [yS[24],yS[-1-24]])
 #plt.plot([xS[-1-24],xS[-1-39]], [yS[-1-24],yS[-1-39]])
-plt.plot([-iEarthRadius, -iEarthRadius],[-iEarthRadius,iEarthRadius])
+plt.plot([-iEarthRadius/1000, -iEarthRadius/1000],[-iEarthRadius/1000,iEarthRadius/1000])
 plt.legend()
 plt.show()
 
@@ -366,7 +374,7 @@ print("Satellite could be Eclipsed by Earth for around {} mins per Orbit".format
 
 # ## Util functions
 
-# In[ ]:
+# In[9]:
 
 
 # dB wrt milliwatt normally
@@ -407,7 +415,7 @@ def freq2wavelen(freq):
 # 
 # ### RF Losses
 
-# In[ ]:
+# In[10]:
 
 
 # Using Friis transmission formula
@@ -447,7 +455,7 @@ plt.show()
 
 # ### Doppler effect
 
-# In[ ]:
+# In[11]:
 
 
 commFreqs = numpy.array([145_800_000, 436_000_000])
