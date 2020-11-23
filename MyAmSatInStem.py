@@ -9,17 +9,7 @@
 # Which inturn can be tracked and listened to by students at heart by using either a suitable FM receiver
 # or better still a SDR reciever.
 # 
-# ### Digital data comm
-# 
-# In turn use a simple mechanism to transmit the sensor data like
-# 
-# a) Simple Analog frequency modulation: Different frequencies for different values
-# 
-# b) Analog frequency modulated tones for different decimal digits from 0 to 9, maybe each 200 Hz appart.
-# 
-# b) Binary Digital Keying: Presence or absence of Frequency or Toggle btw 2 different sets of frequencies indicate between 0 and 1. 
-# 
-# ### Orbit (initial thought, need to think/check)
+# ### Orbit
 # 
 # The Polar orbit should allow the satellite to cover all parts of the earth.
 # 
@@ -36,10 +26,13 @@
 
 # ## NOTE
 # 
-# Below are few simple minded calculations to get a very very rough initial idea of few things. It is more simple geometry based and far removed from actual orbital characteristics. 
+# These are some initial thoughts in general, need to think/check
 # 
+# Below are few simple minded calculations to get a very very rough initial idea of few things. It is more simple geometry based and far removed from actual orbital characteristics. But still ...
+# 
+# Also I have nevered looked into satelite orbits and its implications before, on top these are my initial thoughts, that too with simple minded modeling, so take these with a big pinch of salt ;-)
 
-# In[2]:
+# In[33]:
 
 
 import math
@@ -49,7 +42,7 @@ import matplotlib.pyplot as plt
 
 # ## Earth
 
-# In[3]:
+# In[34]:
 
 
 # Gravitational Constant (m^3 / (kg * s^2))
@@ -68,7 +61,7 @@ print("EarthCircumference:", iEarthCircumference)
 
 # ## LEO
 
-# In[36]:
+# In[35]:
 
 
 ## LowEarthOrbit
@@ -98,7 +91,7 @@ iDayInSecs/(iDayInSecs%iLeoOrbitTimeTaken)
 #0.146*103
 
 
-# In[38]:
+# In[36]:
 
 
 ## Orbital Velocities
@@ -108,8 +101,15 @@ iAltitudesAboveGround = numpy.arange(0,35_500_000, 500_000)
 def orbitvelocity_from_altitude(altitudeFromCenter, theMainMass=iEarthMass):
     return numpy.sqrt((iGravitationalConstant*theMainMass)/altitudeFromCenter)
 
+def orbittime_from_altitude(altitudeFromCenter, theMainMass=iEarthMass):
+    orbVel = orbitvelocity_from_altitude(altitudeFromCenter, theMainMass)
+    orbCirumference = 2 * math.pi * altitudeFromCenter
+    return orbCirumference/orbVel
+
 iOrbitVelocities = orbitvelocity_from_altitude(iAltitudesAboveGround+iEarthRadius)
+iOrbitTimes = orbittime_from_altitude(iAltitudesAboveGround+iEarthRadius)
 plt.plot(iAltitudesAboveGround/1000, iOrbitVelocities, "+-")
+#plt.plot(iAltitudesAboveGround/1000, iOrbitTimes, "+-r")
 plt.xlabel("AltAboveGnd[Km]")
 plt.ylabel("OrbitVelocities[m/s]")
 plt.show()
@@ -117,7 +117,7 @@ plt.show()
 
 # ## Earth coverage
 
-# In[5]:
+# In[37]:
 
 
 # Earth Coverage and Altitude
@@ -152,6 +152,94 @@ print("EarthMovementPerOrbitAtEquatorDueToRotation:", iEarthMovementPerOrbitAtEq
 (iEarthCircumferenceAtEquatorCoveredPerOrbit/iEarthMovementPerOrbitAtEquatorDueToRotation)*100
 
 
+# In[53]:
+
+
+# Earth Equatorial Circumference covered across orbits
+
+
+bCoverageGraphics = False
+
+
+# Offsetting the base to a multiple of 360 instead of 0
+# could simplify the calc by needing only mod, but going for simple straight interpretation 
+def sane_pos(inPos):
+    inPos = (inPos % 360)
+    if inPos < 0:
+        inPos = 360 - inPos
+    return inPos
+
+
+def dprint(msg, bDebug=False):
+    if bDebug:
+        print(msg)
+
+
+iEarthCircumferencePerDegree = iEarthCircumference/360
+print("EarthCircumferencePerDegree:", iEarthCircumferencePerDegree)
+iEarthMovementPerOrbitAtEquatorInDegrees = iEarthMovementPerOrbitAtEquatorDueToRotation/iEarthCircumferencePerDegree
+print("EarthMovementPerOrbitAtEquatorInDegrees[%d]:%g"%(iLeoAltitudeAboveGround, iEarthMovementPerOrbitAtEquatorInDegrees))
+
+
+def earthcoverage_given_orbittime(orbitTime):
+    iEarthMovementPerOrbitAtEquator = orbitTime * iEarthMovementPerSecAtEquatorDueToRotation
+    iEarthMovementPerOrbitAtEquatorInDegrees = iEarthMovementPerOrbitAtEquator / iEarthCircumferencePerDegree 
+    iMaxNumOrbits = 4096
+    iStartPos = 0
+    iPosDelta = 1
+    iCurPos = iStartPos
+    iVisited = set()
+    iVisitedL = []
+    for i in range(iMaxNumOrbits*2):
+        #print(iCurPos)
+        iVisited.add(int(iCurPos))
+        iVisitedL.append(int(iCurPos))
+        # Move to opposite during orbit
+        iCurPos = iCurPos + 180 - (iEarthMovementPerOrbitAtEquatorInDegrees/2)
+        iCurPos = sane_pos(iCurPos)
+        if int(iCurPos) == iStartPos:
+            dprint("Reached back to starting pos on %d th orbit"%(i/2))
+            break
+    iPercentageCovered = (len(iVisited)/360)*100
+    dprint(iVisitedL, False)
+    dprint("%d[/%d] unique orbits, covered %d %% of earth"%(i/2, iMaxNumOrbits, iPercentageCovered), False)
+    return iPercentageCovered, i/2, iVisitedL
+
+
+lAlts = numpy.array([])
+lCvrd = numpy.array([])
+lUniqOrbits = numpy.array([])
+plt.subplot()
+for alt in range(400_000, 1_200_000,10_000):
+    lAlts = numpy.append(lAlts, alt) # easy to infer
+    orbTime = orbittime_from_altitude(alt+iEarthRadius)
+    cvrageP, uniqOrbits, lVisited = earthcoverage_given_orbittime(orbTime)
+    lCvrd = numpy.append(lCvrd, cvrageP)
+    lUniqOrbits = numpy.append(lUniqOrbits, uniqOrbits)
+    print("Orbit: alt [%d] time [%d] cvrage%% [%d] with [%d] uniqOrbits"%(alt, orbTime, cvrageP, uniqOrbits))
+    if (cvrageP < 5) or (cvrageP > 98):
+        print("DBUG:", lVisited)
+    if bCoverageGraphics:
+        y = numpy.zeros(len(lVisited))
+        plt.plot(lVisited, y, "+")
+        plt.show()
+
+
+plt.plot(lAlts/1000, lCvrd, "+-")
+plt.ylabel("Coverage%")
+plt.xlabel("OrbitAlt[Km]")
+plt.show()
+
+plt.plot(lAlts/1000, lUniqOrbits, "+-")
+plt.ylabel("UniqOrbitsB4Repeat")
+plt.xlabel("OrbitAlt[Km]")
+plt.show()
+
+
+bin(2**512-1)
+bin(1 << 6)
+
+
 # ## Return to Same point in Given time
 # 
 # ### Find Orbit Radius given a Orbit Time
@@ -166,7 +254,7 @@ print("EarthMovementPerOrbitAtEquatorDueToRotation:", iEarthMovementPerOrbitAtEq
 # 
 # iOrbitRadius^3 = (iOrbitTime^2 * iGravitationalConst * iEarthMass) / (4 * Pi^2)
 
-# In[6]:
+# In[39]:
 
 
 def orbitradius_giventime(orbitTime, theMainMass=iEarthMass, gravitationalConstant=iGravitationalConstant):
@@ -180,29 +268,34 @@ orbitradius_giventime(2*60*60)-iEarthRadius
 
 # ## Eclipse due to earth
 
-# In[7]:
+# In[49]:
 
 
 ## Show Earth and Satellite Orbit
 rads=numpy.linspace(0,numpy.pi*2,128)
 xE = numpy.sin(rads)*iEarthRadius
 yE = numpy.cos(rads)*iEarthRadius
-plt.plot(xE,yE,"b")
+plt.plot(xE,yE,"b", label="Earth")
 xS = numpy.sin(rads)*iLeoAltitudeFromEarthCenter
 yS = numpy.cos(rads)*iLeoAltitudeFromEarthCenter
-plt.plot(xS,yS,"r.")
+plt.plot(xS,yS,"r.", label="SatOrbit")
 plt.plot([0,xS[24]],[0,yS[24]],"g")
 plt.plot([0,xS[-1-24]],[0,yS[-1-24]],"g")
 plt.plot([xS[24],xS[-1-24]], [yS[24],yS[-1-24]])
 #plt.plot([xS[-1-24],xS[-1-39]], [yS[-1-24],yS[-1-39]])
 plt.plot([-iEarthRadius, -iEarthRadius],[-iEarthRadius,iEarthRadius])
+plt.legend()
 plt.show()
+
+'''
 
 ## EvenMoreCrudeMath: rough amount of time for which satellite will be eclipsed by earth in a orbit
 iHalfOfEarthToLeoCircumference = (0.5*iEarthCircumference)/iLeoCircumference
 iMaxEclipseTime = iHalfOfEarthToLeoCircumference * iLeoOrbitTimeTaken
 print("Satellite could be Eclipsed by Earth for a max of {} mins per Orbit".format(iMaxEclipseTime/60))
 # Actual Eclipse time will be smaller than this, as light bends over (among others...)
+
+'''
 
 ## Blind, based on simple direct EarthDia
 iMinEclipseTime = (((iEarthRadius*2)/iLeoCircumference)*iLeoOrbitTimeTaken)
@@ -220,7 +313,7 @@ print("Satellite could be Eclipsed by Earth for around {} mins per Orbit".format
 
 # ## Util functions
 
-# In[8]:
+# In[41]:
 
 
 # dB wrt milliwatt normally
@@ -251,12 +344,17 @@ def freq2wavelen(freq):
 # 
 # The V band will be more crowded compared to U band.
 # 
-# At same time V band has less doppler effect (and so the related freq drift) compared to the higher frequency U band.
+# At same time V band has
+# 
+# * less doppler effect (and so the related freq drift)
+# * lesser rf path losses
+# 
+# compared to the higher frequency U band.
 # 
 # 
 # ### RF Losses
 
-# In[25]:
+# In[47]:
 
 
 # Using Friis transmission formula
@@ -287,10 +385,6 @@ def freespace_pathloss(Pt_dBm, Dt_dBi, Dr_dBi, frequencies, distances):
 powerRecieverDBm = freespace_pathloss(powerTransmitterDBm, directivityTransmitterDBi, directivityRecieverDBi,
                                        frequencies, distances)
 print("PowerAtReciever_Rough(dBm):\n",powerRecieverDBm)
-plt.plot(frequencies, powerRecieverDBm[0], "g.-", label="500Km")
-plt.plot(frequencies, powerRecieverDBm[1], "r.-", label="1000Km")
-plt.legend()
-plt.show()
 plt.plot(frequencies, numpy.atleast_2d(powerRecieverDBm).T,"+-")
 plt.legend(["500Km", "1000Km"])
 plt.xlabel("Freqs")
@@ -300,7 +394,7 @@ plt.show()
 
 # ### Doppler effect
 
-# In[27]:
+# In[43]:
 
 
 commFreqs = numpy.array([145_800_000, 436_000_000])
@@ -312,3 +406,19 @@ plt.xlabel("Freqs")
 plt.ylabel("Drift(Hz)")
 plt.show()
 
+
+# ### Data comm
+# 
+# In turn use a simple mechanism to transmit the sensor data like
+# 
+# a) Simple Analog frequency modulation: Different frequencies for different values
+# 
+# b) Analog frequency modulated tones for different decimal digits from 0 to 9, maybe each 200 Hz appart.
+# 
+# c) Binary Digital Keying: Presence or absence of Frequency or Toggle btw 2 different sets of frequencies indicate between 0 and 1.
+
+# ## Misc
+# 
+# #### FootNotes
+# 
+# Will reside somewhere at https://github.com/hanishkvc
