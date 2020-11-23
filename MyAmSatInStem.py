@@ -18,7 +18,7 @@
 # 
 # Also I have nevered looked into satelite orbits and its implications before, on top these are my initial thoughts, that too with simple minded modeling, so take these with a big pinch of salt ;-)
 
-# In[33]:
+# In[84]:
 
 
 import math
@@ -28,7 +28,7 @@ import matplotlib.pyplot as plt
 
 # ## Earth
 
-# In[34]:
+# In[85]:
 
 
 # Gravitational Constant (m^3 / (kg * s^2))
@@ -62,7 +62,7 @@ print("EarthCircumference:", iEarthCircumference)
 
 # ## LEO
 
-# In[35]:
+# In[86]:
 
 
 ## LowEarthOrbit
@@ -92,7 +92,7 @@ iDayInSecs/(iDayInSecs%iLeoOrbitTimeTaken)
 #0.146*103
 
 
-# In[36]:
+# In[87]:
 
 
 ## Orbital Velocities
@@ -118,7 +118,7 @@ plt.show()
 
 # ## Earth coverage
 
-# In[37]:
+# In[88]:
 
 
 # Earth Coverage and Altitude
@@ -153,7 +153,7 @@ print("EarthMovementPerOrbitAtEquatorDueToRotation:", iEarthMovementPerOrbitAtEq
 (iEarthCircumferenceAtEquatorCoveredPerOrbit/iEarthMovementPerOrbitAtEquatorDueToRotation)*100
 
 
-# In[57]:
+# In[134]:
 
 
 # Earth Equatorial Circumference covered across orbits
@@ -167,8 +167,13 @@ bCoverageGraphics = False
 def sane_pos(inPos):
     inPos = (inPos % 360)
     if inPos < 0:
-        inPos = 360 - inPos
+        inPos = 360 + inPos
     return inPos
+
+
+def test_sane_pos():
+    for i in range(-520,520):
+        print(i, sane_pos(i))
 
 
 def dprint(msg, bDebug=False):
@@ -182,15 +187,46 @@ iEarthMovementPerOrbitAtEquatorInDegrees = iEarthMovementPerOrbitAtEquatorDueToR
 print("EarthMovementPerOrbitAtEquatorInDegrees[%d]:%g"%(iLeoAltitudeAboveGround, iEarthMovementPerOrbitAtEquatorInDegrees))
 
 
-print("\nNOTE: The below doesnt bother about field of view of equipment used, wrt earth coverage")
-print("Chances are satellite should cover earth fully faster than these, when field of view based wider coverage is accounted")
+'''
+def in_coverageradius(inPos, coverageRadiusInDegs):
+    startPos = sane_pos(inPos-coverageRadiusInDegs)
+    endPos = sane_pos(inPos+coverageRadiusInDegs)
+    ...
+'''
+def circular_diff(pos1, pos2):
+    '''
+    pos1 and pos2 need to be +ve and within circular range
+    '''
+    delta = pos1 - pos2
+    if delta > 180:
+        delta = delta - 360
+    if delta < -180:
+        delta = 360 + delta
+    return delta
 
-def earthcoverage_given_orbittime(orbitTime):
+
+def circular_absdiff(pos1, pos2):
+    '''
+    pos1 and pos2 need to be +ve and within circular range
+    '''
+    delta = pos1 - pos2
+    if abs(delta) > 180:
+        delta = 360-abs(delta)
+    return abs(delta)
+
+
+t1=circular_absdiff(270,89)
+t2=circular_absdiff(89,270)
+t3=circular_absdiff(359,0)
+t4=circular_absdiff(0,359)
+print(t1,t2,t3,t4)
+
+
+def earthcoverage_given_orbittime(orbitTime, coverageRadiusInDegs=0):
     iEarthMovementPerOrbitAtEquator = orbitTime * iEarthMovementPerSecAtEquatorDueToRotation
-    iEarthMovementPerOrbitAtEquatorInDegrees = iEarthMovementPerOrbitAtEquator / iEarthCircumferencePerDegree 
+    iEarthMovementPerOrbitAtEquatorInDegrees = iEarthMovementPerOrbitAtEquator / iEarthCircumferencePerDegree
     iMaxNumOrbits = 4096
     iStartPos = 0
-    iPosDelta = 1
     iCurPos = iStartPos
     iVisited = set()
     iVisitedL = []
@@ -201,39 +237,52 @@ def earthcoverage_given_orbittime(orbitTime):
         # Move to opposite during orbit
         iCurPos = iCurPos + 180 - (iEarthMovementPerOrbitAtEquatorInDegrees/2)
         iCurPos = sane_pos(iCurPos)
-        if round(iCurPos) == iStartPos:
+        if circular_absdiff(iStartPos, iCurPos) <= coverageRadiusInDegs:
+            iVisited.add(int(iCurPos))
+            iVisitedL.append(int(iCurPos))
             dprint("Reached back to starting pos on %d th orbit"%(i/2))
             break
-    iPercentageCovered = (len(iVisited)/360)*100
-    dprint(iVisitedL, False)
-    dprint("%d[/%d] unique orbits, covered %d %% of earth"%(i/2, iMaxNumOrbits, iPercentageCovered), False)
+    coverageMultiplier = 2*coverageRadiusInDegs
+    if coverageMultiplier == 0:
+        coverageMultiplier = 1
+    iPercentageCovered = (len(iVisited)/360)*coverageMultiplier*100
+    dprint(iVisited, True)
+    dprint(iVisitedL, True)
+    dprint("%d[/%d] unique orbits, covered %d %% of earth with FOVCvrageRadiusDegs of %g"%(i/2, iMaxNumOrbits, iPercentageCovered, coverageRadiusInDegs), False)
     return iPercentageCovered, i/2, iVisitedL
 
 
 lAlts = numpy.array([])
 lCvrd = numpy.array([])
 lUniqOrbits = numpy.array([])
-plt.subplot()
-for alt in range(400_000, 1_200_000,10_000):
+iFieldOfView=60
+for alt in range(400_000, 2_000_000, 50_000):
     lAlts = numpy.append(lAlts, alt) # easy to infer
     orbTime = orbittime_from_altitude(alt+iEarthRadius)
-    cvrageP, uniqOrbits, lVisited = earthcoverage_given_orbittime(orbTime)
+    iFOVCoverageRadius = numpy.tan(((iFieldOfView/2)/360)*math.pi*2)*alt
+    iFOVCoverageRadiusInDegs = iFOVCoverageRadius / iEarthCircumferencePerDegree
+    cvrageP, uniqOrbits, lVisited = earthcoverage_given_orbittime(orbTime, iFOVCoverageRadiusInDegs)
     lCvrd = numpy.append(lCvrd, cvrageP)
     lUniqOrbits = numpy.append(lUniqOrbits, uniqOrbits)
-    print("Orbit: alt [%d] time [%d] cvrage%% [%d] with [%d] uniqOrbits"%(alt, orbTime, cvrageP, uniqOrbits))
-    if (cvrageP < 5) or (cvrageP > 99):
-        print("DBUG:", lVisited)
+    print("Orbit: alt [%d] time [%d] FOVCvrgRadiusDegs [%g] cvrage%% [%g] with [%d] uniqOrbits"%(alt, orbTime, iFOVCoverageRadiusInDegs, cvrageP, uniqOrbits))
+    #print("DBUG:", lVisited)
     if bCoverageGraphics:
         y = numpy.zeros(len(lVisited))
         plt.plot(lVisited, y, "+")
         plt.show()
 
 
-plt.plot(lAlts/1000, lCvrd, "+-")
+plt.rcParams['figure.figsize'] = [8,4]
+plt.rcParams['figure.dpi'] = 120
+#plt.figure(figsize=(8,4), dpi=100)
+plt.subplots(1,2)
+plt.subplot(121)
+tCvrd = numpy.clip(lCvrd, 0, 100)
+plt.plot(lAlts/1000, tCvrd, "+-")
 plt.ylabel("Coverage%")
 plt.xlabel("OrbitAlt[Km]")
-plt.show()
 
+plt.subplot(122)
 plt.plot(lAlts/1000, lUniqOrbits, "+-")
 plt.ylabel("UniqOrbitsB4Repeat")
 plt.xlabel("OrbitAlt[Km]")
@@ -258,7 +307,7 @@ bin(1 << 6)
 # 
 # iOrbitRadius^3 = (iOrbitTime^2 * iGravitationalConst * iEarthMass) / (4 * Pi^2)
 
-# In[39]:
+# In[ ]:
 
 
 def orbitradius_giventime(orbitTime, theMainMass=iEarthMass, gravitationalConstant=iGravitationalConstant):
@@ -272,7 +321,7 @@ orbitradius_giventime(2*60*60)-iEarthRadius
 
 # ## Eclipse due to earth
 
-# In[49]:
+# In[ ]:
 
 
 ## Show Earth and Satellite Orbit
@@ -317,7 +366,7 @@ print("Satellite could be Eclipsed by Earth for around {} mins per Orbit".format
 
 # ## Util functions
 
-# In[41]:
+# In[ ]:
 
 
 # dB wrt milliwatt normally
@@ -358,7 +407,7 @@ def freq2wavelen(freq):
 # 
 # ### RF Losses
 
-# In[47]:
+# In[ ]:
 
 
 # Using Friis transmission formula
@@ -398,7 +447,7 @@ plt.show()
 
 # ### Doppler effect
 
-# In[43]:
+# In[ ]:
 
 
 commFreqs = numpy.array([145_800_000, 436_000_000])
