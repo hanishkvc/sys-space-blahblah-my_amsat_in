@@ -9,22 +9,8 @@
 # Which inturn can be tracked and listened to by students at heart by using either a suitable FM receiver
 # or better still a SDR reciever.
 # 
-# ### Orbit
-# 
-# The Polar orbit should allow the satellite to cover all parts of the earth.
-# 
-# If a orbit altitude is reached such that the velocity achieved can ensure that N (1 or more) full orbits can be finished in time T, such that T is 24 hours or its multiples, then the satellite will retrace the same path at the same relative time once every T hours i.e T/24 days. NOTE: Not sure if the LEO orbits is sufficiently stable enough over a long period of atleast few weeks, so that it can be used to have a simple tracking wrt the satellite for that period.
-# 
-# If a sun synchronous orbit is achived or maintained, then depending on the angle wrt earth-sun orbital plane,
-# 
-# * if it is 90 degrees, then the satellite could be placed always in day light, so that solar power is always available. However one needs to verify if the temperature of the satellite parts can be maintained well within reasonable operating range, in this case. Is the attitude maintaining rotation good enough or not or conductive heat distribution pipes/paths good enough or ...
-# 
-# * if it is 0 degrees, then the satellite would be always at around roughly mid day or mid night wrt the places on earth, depending on which side of the earth wrt sun, that place is.
-# 
-# The satellite may pass over a given ground location between 0 to 2 times under normal conditions for a polar sun synchronous orbit. Ideally this would be twice if the satellite (and its RF system) covers all parts of the earth fully in a day.
-# 
 
-# ## NOTE
+# ## a NOTE
 # 
 # These are some initial thoughts in general, need to think/check
 # 
@@ -58,6 +44,21 @@ iEarthMass = 5.972 * 10**24
 iEarthCircumference = 2 * math.pi * iEarthRadius
 print("EarthCircumference:", iEarthCircumference)
 
+
+# ## Orbit
+# 
+# The Polar orbit should allow the satellite to cover most parts of the earth.
+# 
+# If a orbit altitude is reached such that the velocity achieved can ensure that N (1 or more) full orbits can be finished in time T, such that T is 24 hours or its multiples, then the satellite will retrace the same path at the same relative time once every T hours i.e T/24 days. NOTE: Not sure if the LEO orbits is sufficiently stable enough over a long period of atleast few weeks, so that it can be used to have a simple tracking wrt the satellite for that period.
+# 
+# If a sun synchronous orbit is achived or maintained, then depending on the angle wrt earth-sun orbital plane,
+# 
+# * if it is 90 degrees, then the satellite could be placed always in day light, so that solar power is always available. However one needs to verify if the temperature of the satellite parts can be maintained well within reasonable operating range, in this case. Is the attitude maintaining rotation good enough or not or conductive heat distribution pipes/paths good enough or ...
+# 
+# * if it is 0 degrees, then the satellite would be always at around roughly mid day or mid night wrt the places on earth, depending on which side of the earth wrt sun, that place is.
+# 
+# The satellite may pass over a given ground location between 0 to 2 times under normal conditions for a polar sun synchronous orbit. Ideally this would be twice if the satellite (and its RF system) covers all parts of the earth fully in a day.
+# 
 
 # ## LEO
 
@@ -152,7 +153,7 @@ print("EarthMovementPerOrbitAtEquatorDueToRotation:", iEarthMovementPerOrbitAtEq
 (iEarthCircumferenceAtEquatorCoveredPerOrbit/iEarthMovementPerOrbitAtEquatorDueToRotation)*100
 
 
-# In[53]:
+# In[57]:
 
 
 # Earth Equatorial Circumference covered across orbits
@@ -181,6 +182,9 @@ iEarthMovementPerOrbitAtEquatorInDegrees = iEarthMovementPerOrbitAtEquatorDueToR
 print("EarthMovementPerOrbitAtEquatorInDegrees[%d]:%g"%(iLeoAltitudeAboveGround, iEarthMovementPerOrbitAtEquatorInDegrees))
 
 
+print("\nNOTE: The below doesnt bother about field of view of equipment used, wrt earth coverage")
+print("Chances are satellite should cover earth fully faster than these, when field of view based wider coverage is accounted")
+
 def earthcoverage_given_orbittime(orbitTime):
     iEarthMovementPerOrbitAtEquator = orbitTime * iEarthMovementPerSecAtEquatorDueToRotation
     iEarthMovementPerOrbitAtEquatorInDegrees = iEarthMovementPerOrbitAtEquator / iEarthCircumferencePerDegree 
@@ -197,7 +201,7 @@ def earthcoverage_given_orbittime(orbitTime):
         # Move to opposite during orbit
         iCurPos = iCurPos + 180 - (iEarthMovementPerOrbitAtEquatorInDegrees/2)
         iCurPos = sane_pos(iCurPos)
-        if int(iCurPos) == iStartPos:
+        if round(iCurPos) == iStartPos:
             dprint("Reached back to starting pos on %d th orbit"%(i/2))
             break
     iPercentageCovered = (len(iVisited)/360)*100
@@ -217,7 +221,7 @@ for alt in range(400_000, 1_200_000,10_000):
     lCvrd = numpy.append(lCvrd, cvrageP)
     lUniqOrbits = numpy.append(lUniqOrbits, uniqOrbits)
     print("Orbit: alt [%d] time [%d] cvrage%% [%d] with [%d] uniqOrbits"%(alt, orbTime, cvrageP, uniqOrbits))
-    if (cvrageP < 5) or (cvrageP > 98):
+    if (cvrageP < 5) or (cvrageP > 99):
         print("DBUG:", lVisited)
     if bCoverageGraphics:
         y = numpy.zeros(len(lVisited))
